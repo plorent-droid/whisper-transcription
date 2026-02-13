@@ -1,6 +1,6 @@
 ---
 title: Whisper Transcription
-emoji: 😻
+emoji: 🎙️
 colorFrom: gray
 colorTo: red
 sdk: gradio
