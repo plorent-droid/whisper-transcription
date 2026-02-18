@@ -1,0 +1,6 @@
+.git
+.cache
+audio/
+__pycache__/
+*.pyc
+*.pyo

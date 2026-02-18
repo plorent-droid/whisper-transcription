@@ -74,7 +74,6 @@ with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
             text_output = gr.Textbox(
                 label="Transcription",
                 lines=20,
-                show_copy_button=True,
             )
 
     run_btn.click(
@@ -83,4 +82,4 @@ with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
         outputs=[info_output, text_output],
     )
 
-demo.launch()
+demo.launch(server_name="0.0.0.0", server_port=7860)
