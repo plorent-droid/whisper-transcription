@@ -1,3 +1,8 @@
+## 0.5.0 (February 20, 2026)
+  - :up: update(yt-dlp): mise à jour de yt-dlp et ajout de l'option noplaylist pour éviter les erreurs lors du téléchargement de vidéos individuelles.
+  - :star: feature (YouTube): ajout de la fonctionnalité de téléchargement audio depuis YouTube avec yt-dlp, intégrée à l'interface Gradio.
+  - Merge branch 'feature/maj_README.md' into develop
+
 ## 0.4.0 (February 18, 2026)
   - :up: update (README.md): mise à jour du README avec des instructions de déploiement détaillées sur Hugging Face Spaces et Docker.
   - Merge branch 'feature/init_docker' into develop
