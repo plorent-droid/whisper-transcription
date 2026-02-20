@@ -93,6 +93,18 @@ def transcribe_youtube(url: str, model_size: str) -> tuple[str, str]:
         os.unlink(audio_path)
 
 
+def prepare_download(transcription: str) -> str | None:
+    """Write transcription text to a temp .txt file and return its path."""
+    if not transcription or not transcription.strip():
+        return None
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, encoding="utf-8"
+    )
+    tmp.write(transcription)
+    tmp.close()
+    return tmp.name
+
+
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
 with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
     gr.Markdown(
@@ -126,12 +138,19 @@ with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
                 with gr.Column(scale=2):
                     file_info = gr.Markdown(label="Informations")
                     file_output = gr.Textbox(label="Transcription", lines=20)
+                    file_dl_btn = gr.Button("⬇️ Télécharger la transcription")
+                    file_dl = gr.File(label="Fichier à télécharger", visible=False)
 
             file_btn.click(
                 fn=transcribe_file,
                 inputs=[audio_input, model_selector],
                 outputs=[file_info, file_output],
             )
+            file_dl_btn.click(
+                fn=prepare_download,
+                inputs=[file_output],
+                outputs=[file_dl],
+            ).then(fn=lambda f: gr.File(visible=f is not None), inputs=[file_dl], outputs=[file_dl])
 
         # ── Tab 2 : YouTube ───────────────────────────────────────────────────
         with gr.Tab("▶️ YouTube"):
@@ -145,11 +164,18 @@ with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
                 with gr.Column(scale=2):
                     yt_info = gr.Markdown(label="Informations")
                     yt_output = gr.Textbox(label="Transcription", lines=20)
+                    yt_dl_btn = gr.Button("⬇️ Télécharger la transcription")
+                    yt_dl = gr.File(label="Fichier à télécharger", visible=False)
 
             yt_btn.click(
                 fn=transcribe_youtube,
                 inputs=[yt_url, model_selector],
                 outputs=[yt_info, yt_output],
             )
+            yt_dl_btn.click(
+                fn=prepare_download,
+                inputs=[yt_output],
+                outputs=[yt_dl],
+            ).then(fn=lambda f: gr.File(visible=f is not None), inputs=[yt_dl], outputs=[yt_dl])
 
 demo.launch(server_name="0.0.0.0", server_port=7860)
