@@ -1,3 +1,7 @@
+## 0.6.0 (February 20, 2026)
+  - :star: feature(download): ajout d'un bouton pour télécharger la transcription au format .txt
+  - Merge branch 'feature/ajout_module_youtube' into develop
+
 ## 0.5.0 (February 20, 2026)
   - :up: update(yt-dlp): mise à jour de yt-dlp et ajout de l'option noplaylist pour éviter les erreurs lors du téléchargement de vidéos individuelles.
   - :star: feature (YouTube): ajout de la fonctionnalité de téléchargement audio depuis YouTube avec yt-dlp, intégrée à l'interface Gradio.
