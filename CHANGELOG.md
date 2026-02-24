@@ -1,3 +1,7 @@
+## 0.7.0 (February 24, 2026)
+  - :up: update(app.py): replace YouTube download avec téléchargement depuis une URL directe, en bloquant explicitement les URLs YouTube sur HuggingFace Spaces.
+  - Merge branch 'feature/ajout_download' into develop
+
 ## 0.6.0 (February 20, 2026)
   - :star: feature(download): ajout d'un bouton pour télécharger la transcription au format .txt
   - Merge branch 'feature/ajout_module_youtube' into develop
