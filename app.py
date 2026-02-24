@@ -1,9 +1,9 @@
 import functools
 import os
 import tempfile
+import urllib.request
 
 import gradio as gr
-import yt_dlp
 from faster_whisper import WhisperModel
 
 # ── Model caching ─────────────────────────────────────────────────────────────
@@ -11,40 +11,6 @@ from faster_whisper import WhisperModel
 def load_model(size: str) -> WhisperModel:
     """Load and cache a WhisperModel (one instance per model size)."""
     return WhisperModel(size, device="cpu", compute_type="int8")
-
-
-# ── YouTube download ──────────────────────────────────────────────────────────
-def download_youtube_audio(url: str) -> tuple[str, str]:
-    """
-    Download audio from a YouTube URL to a temp file.
-    Returns (file_path, video_title).
-    """
-    tmp_dir = tempfile.mkdtemp()
-    output_template = os.path.join(tmp_dir, "%(title)s.%(ext)s")
-
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": output_template,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        title = info.get("title", "video")
-
-    # Find the downloaded mp3 file
-    for f in os.listdir(tmp_dir):
-        if f.endswith(".mp3"):
-            return os.path.join(tmp_dir, f), title
-
-    raise FileNotFoundError("Le fichier audio téléchargé est introuvable.")
 
 
 # ── Transcription function ────────────────────────────────────────────────────
@@ -78,19 +44,38 @@ def transcribe_file(audio_path: str, model_size: str) -> tuple[str, str]:
     return _run_transcription(audio_path, model_size)
 
 
-def transcribe_youtube(url: str, model_size: str) -> tuple[str, str]:
+def transcribe_from_url(url: str, model_size: str) -> tuple[str, str]:
+    """Download audio from a direct URL (not YouTube) and transcribe it."""
     if not url or not url.strip():
-        return "", "⚠️ Veuillez entrer une URL YouTube."
+        return "", "⚠️ Veuillez entrer une URL."
+
+    url = url.strip()
+
+    # Bloquer explicitement YouTube
+    blocked = ["youtube.com", "youtu.be"]
+    if any(b in url for b in blocked):
+        return "", (
+            "❌ Les URLs YouTube sont bloquées sur HuggingFace Spaces.\n\n"
+            "**Alternative :** Téléchargez la vidéo/audio sur votre ordinateur "
+            "avec [yt-dlp](https://github.com/yt-dlp/yt-dlp) puis uploadez le fichier dans l'onglet 📂 Fichier / Micro.\n\n"
+            "```bash\nyt-dlp -x --audio-format mp3 \"URL_YOUTUBE\"\n```"
+        )
+
     try:
-        audio_path, title = download_youtube_audio(url.strip())
+        tmp_dir = tempfile.mkdtemp()
+        ext = url.split("?")[0].split(".")[-1] or "mp3"
+        tmp_path = os.path.join(tmp_dir, f"audio.{ext}")
+
+        urllib.request.urlretrieve(url, tmp_path)
+
     except Exception as e:
         return "", f"❌ Erreur lors du téléchargement : {e}"
+
     try:
-        info_text, transcription = _run_transcription(audio_path, model_size)
-        info_text = f"🎬 **{title}**\n\n{info_text}"
+        info_text, transcription = _run_transcription(tmp_path, model_size)
         return info_text, transcription
     finally:
-        os.unlink(audio_path)
+        os.unlink(tmp_path)
 
 
 def prepare_download(transcription: str) -> str | None:
@@ -152,30 +137,37 @@ with gr.Blocks(title="🎙️ Whisper Transcription") as demo:
                 outputs=[file_dl],
             ).then(fn=lambda f: gr.File(visible=f is not None), inputs=[file_dl], outputs=[file_dl])
 
-        # ── Tab 2 : YouTube ───────────────────────────────────────────────────
-        with gr.Tab("▶️ YouTube"):
+        # ── Tab 2 : URL directe (YouTube remplacé) ────────────────────────────
+        with gr.Tab("🔗 URL Audio"):
+            gr.Markdown(
+                "> ⚠️ **YouTube est bloqué** sur HuggingFace Spaces (restriction réseau).\n"
+                "> Utilisez une URL directe vers un fichier audio (`.mp3`, `.wav`, `.m4a`…).\n"
+                "> Pour YouTube, téléchargez d'abord l'audio localement :\n"
+                "> ```bash\n> yt-dlp -x --audio-format mp3 \"URL_YOUTUBE\"\n> ```\n"
+                "> puis uploadez le fichier dans l'onglet **📂 Fichier / Micro**."
+            )
             with gr.Row():
                 with gr.Column(scale=1):
-                    yt_url = gr.Textbox(
-                        label="URL YouTube",
-                        placeholder="https://www.youtube.com/watch?v=...",
+                    url_input = gr.Textbox(
+                        label="URL directe vers un fichier audio",
+                        placeholder="https://example.com/audio.mp3",
                     )
-                    yt_btn = gr.Button("🚀 Télécharger & Transcrire", variant="primary")
+                    url_btn = gr.Button("🚀 Télécharger & Transcrire", variant="primary")
                 with gr.Column(scale=2):
-                    yt_info = gr.Markdown(label="Informations")
-                    yt_output = gr.Textbox(label="Transcription", lines=20)
-                    yt_dl_btn = gr.Button("⬇️ Télécharger la transcription")
-                    yt_dl = gr.File(label="Fichier à télécharger", visible=False)
+                    url_info = gr.Markdown(label="Informations")
+                    url_output = gr.Textbox(label="Transcription", lines=20)
+                    url_dl_btn = gr.Button("⬇️ Télécharger la transcription")
+                    url_dl = gr.File(label="Fichier à télécharger", visible=False)
 
-            yt_btn.click(
-                fn=transcribe_youtube,
-                inputs=[yt_url, model_selector],
-                outputs=[yt_info, yt_output],
+            url_btn.click(
+                fn=transcribe_from_url,
+                inputs=[url_input, model_selector],
+                outputs=[url_info, url_output],
             )
-            yt_dl_btn.click(
+            url_dl_btn.click(
                 fn=prepare_download,
-                inputs=[yt_output],
-                outputs=[yt_dl],
-            ).then(fn=lambda f: gr.File(visible=f is not None), inputs=[yt_dl], outputs=[yt_dl])
+                inputs=[url_output],
+                outputs=[url_dl],
+            ).then(fn=lambda f: gr.File(visible=f is not None), inputs=[url_dl], outputs=[url_dl])
 
 demo.launch(server_name="0.0.0.0", server_port=7860)
